@@ -19,8 +19,10 @@ from visualizations import (
     plot_failure_modes_bar,
     plot_product_type_distribution,
     plot_speed_vs_torque,
+    plot_fleet_health_gauge,
 )
 from model import load_trained_model
+from theme_helper import render_theme_sidebar
 
 # Page configuration
 st.set_page_config(
@@ -106,6 +108,9 @@ with st.sidebar:
     st.title("Industrial Analytics")
     st.caption("CSI3005 Case Study Portfolio")
     st.markdown("---")
+
+    # Interactive Theme & Palette Controls
+    theme_mode, chart_palette = render_theme_sidebar()
 
     st.subheader("Data Source Status")
     if data_loaded:

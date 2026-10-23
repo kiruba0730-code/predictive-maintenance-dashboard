@@ -17,6 +17,21 @@ COLOR_MAP = {
     "1": "#EF4444",
 }
 
+PALETTES = {
+    "Emerald & Crimson": {"No Failure": "#10B981", "Failure": "#EF4444"},
+    "Cyan & Rose": {"No Failure": "#06B6D4", "Failure": "#F43F5E"},
+    "Cobalt & Orange": {"No Failure": "#2563EB", "Failure": "#EA580C"},
+}
+
+def get_color_map(palette_name: Optional[str] = None) -> Dict[str, str]:
+    """Returns the active color mapping based on user selection or session state."""
+    try:
+        import streamlit as st
+        p = palette_name or st.session_state.get("chart_palette", "Emerald & Crimson")
+        return PALETTES.get(p, COLOR_MAP)
+    except Exception:
+        return COLOR_MAP
+
 THEME_LAYOUT = dict(
     paper_bgcolor="rgba(15, 23, 42, 0)",
     plot_bgcolor="rgba(30, 41, 59, 0.4)",
@@ -44,19 +59,135 @@ THEME_LAYOUT = dict(
     margin=dict(l=50, r=30, t=50, b=50),
 )
 
-def apply_industrial_theme(fig: go.Figure, title: str = "") -> go.Figure:
-    """Applies a consistent industrial dark-mode visual theme."""
-    fig.update_layout(**THEME_LAYOUT)
+def get_theme_layout(theme_mode: Optional[str] = None) -> dict:
+    """Returns plot styling layout dynamically based on Dark or Light mode."""
+    is_light = False
+    try:
+        import streamlit as st
+        mode = theme_mode or st.session_state.get("theme_mode", "Dark Industrial")
+        is_light = (mode == "Light Engineering")
+    except Exception:
+        pass
+
+    if is_light:
+        return dict(
+            paper_bgcolor="rgba(255, 255, 255, 0)",
+            plot_bgcolor="rgba(241, 245, 249, 0.7)",
+            font=dict(color="#0F172A", family="Inter, system-ui, sans-serif"),
+            xaxis=dict(
+                gridcolor="#E2E8F0",
+                zerolinecolor="#CBD5E1",
+                linecolor="#94A3B8",
+                tickfont=dict(color="#475569"),
+                title_font=dict(color="#0F172A", size=13),
+            ),
+            yaxis=dict(
+                gridcolor="#E2E8F0",
+                zerolinecolor="#CBD5E1",
+                linecolor="#94A3B8",
+                tickfont=dict(color="#475569"),
+                title_font=dict(color="#0F172A", size=13),
+            ),
+            legend=dict(
+                bgcolor="rgba(255, 255, 255, 0.9)",
+                bordercolor="#CBD5E1",
+                borderwidth=1,
+                font=dict(color="#0F172A"),
+            ),
+            margin=dict(l=50, r=30, t=50, b=50),
+        )
+    return THEME_LAYOUT
+
+def apply_industrial_theme(fig: go.Figure, title: str = "", theme_mode: Optional[str] = None) -> go.Figure:
+    """Applies a consistent industrial dark or light visual theme."""
+    layout = get_theme_layout(theme_mode)
+    fig.update_layout(**layout)
     if title:
+        title_color = "#0F172A" if layout["font"]["color"] == "#0F172A" else "#F8FAFC"
         fig.update_layout(
             title=dict(
                 text=title,
-                font=dict(size=15, color="#F8FAFC", family="Inter, sans-serif"),
+                font=dict(size=15, color=title_color, family="Inter, sans-serif"),
                 x=0.02,
                 y=0.96,
             )
         )
     return fig
+
+def plot_fleet_health_gauge(healthy_pct: float = 96.61, theme_mode: Optional[str] = None) -> go.Figure:
+    """Plots an interactive circular health gauge indicator for the factory fleet."""
+    is_light = False
+    try:
+        import streamlit as st
+        mode = theme_mode or st.session_state.get("theme_mode", "Dark Industrial")
+        is_light = (mode == "Light Engineering")
+    except Exception:
+        pass
+        
+    gauge_bg = "#E2E8F0" if is_light else "#334155"
+    text_color = "#0F172A" if is_light else "#F8FAFC"
+
+    fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number+delta",
+            value=healthy_pct,
+            domain={"x": [0, 1], "y": [0, 1]},
+            title={"text": "Overall Fleet Health Index (%)", "font": {"size": 15, "color": text_color}},
+            delta={"reference": 95.0, "increasing": {"color": "#10B981"}},
+            gauge={
+                "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": text_color},
+                "bar": {"color": "#3B82F6"},
+                "bgcolor": gauge_bg,
+                "borderwidth": 2,
+                "bordercolor": gauge_bg,
+                "steps": [
+                    {"range": [0, 85], "color": "rgba(239, 68, 68, 0.4)"},
+                    {"range": [85, 95], "color": "rgba(245, 158, 11, 0.4)"},
+                    {"range": [95, 100], "color": "rgba(16, 185, 129, 0.4)"},
+                ],
+                "threshold": {
+                    "line": {"color": "#10B981", "width": 4},
+                    "thickness": 0.75,
+                    "value": 95.0,
+                },
+            },
+        )
+    )
+    fig.update_layout(height=260, margin=dict(l=20, r=20, t=40, b=20), paper_bgcolor="rgba(0,0,0,0)")
+    return fig
+
+def plot_machine_risk_radial(risk_score: float, ml_prob: float, theme_mode: Optional[str] = None) -> go.Figure:
+    """Dual horizontal bullet gauge comparing rule-based stress index vs ML failure probability."""
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            name="Physics Stress Index",
+            x=[risk_score],
+            y=["Inspection Target"],
+            orientation="h",
+            marker=dict(color="#EF4444" if risk_score > 50 else "#38BDF8"),
+            text=[f"{risk_score:.1f}% Stress"],
+            textposition="auto",
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            name="ML Model Probability",
+            x=[ml_prob],
+            y=["Inspection Target"],
+            orientation="h",
+            marker=dict(color="#DC2626" if ml_prob > 50 else "#10B981"),
+            text=[f"{ml_prob:.1f}% ML Prob"],
+            textposition="auto",
+        )
+    )
+    fig.update_layout(
+        barmode="group",
+        height=180,
+        xaxis=dict(range=[0, 100], title="Operational Stress & Failure Probability (%)"),
+        margin=dict(l=10, r=10, t=30, b=30),
+    )
+    return apply_industrial_theme(fig, "Physics Stress vs. Statistical ML Risk Comparison", theme_mode=theme_mode)
 
 # ------------------------------------------------------------------------------
 # 1. Executive Overview Charts
@@ -139,11 +270,12 @@ def plot_product_type_distribution(df: pd.DataFrame) -> go.Figure:
 
 def plot_tool_wear_histogram(df: pd.DataFrame, nbins: int = 30) -> go.Figure:
     """Interactive histogram of tool wear partitioned by machine failure status."""
+    cmap = get_color_map()
     fig = px.histogram(
         df,
         x="Tool wear [min]",
         color="Failure Status",
-        color_discrete_map=COLOR_MAP,
+        color_discrete_map=cmap,
         nbins=nbins,
         barmode="overlay",
         opacity=0.75,
@@ -157,12 +289,13 @@ def plot_tool_wear_histogram(df: pd.DataFrame, nbins: int = 30) -> go.Figure:
 
 def plot_speed_vs_torque(df: pd.DataFrame) -> go.Figure:
     """Rotational speed vs torque scatter plot colored by recorded machine failure."""
+    cmap = get_color_map()
     fig = px.scatter(
         df,
         x="Rotational speed [rpm]",
         y="Torque [Nm]",
         color="Failure Status",
-        color_discrete_map=COLOR_MAP,
+        color_discrete_map=cmap,
         opacity=0.7,
         hover_data=["UDI", "Product ID", "Type", "Tool wear [min]", "Failure Mode"],
     )
@@ -200,12 +333,13 @@ def plot_speed_vs_torque(df: pd.DataFrame) -> go.Figure:
 
 def plot_temperatures_scatter(df: pd.DataFrame) -> go.Figure:
     """Air temperature vs process temperature scatter plot."""
+    cmap = get_color_map()
     fig = px.scatter(
         df,
         x="Air temperature [K]",
         y="Process temperature [K]",
         color="Failure Status",
-        color_discrete_map=COLOR_MAP,
+        color_discrete_map=cmap,
         opacity=0.7,
         hover_data=["UDI", "Product ID", "Temp difference [K]", "Failure Mode"],
     )
