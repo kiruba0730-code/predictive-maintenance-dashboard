@@ -175,7 +175,7 @@ The classification pipeline strictly excludes:
 
 ### Clone the Repository
 ```bash
-git clone YOUR_REPOSITORY_URL
+git clone https://github.com/kiruba0730-code/predictive-maintenance-dashboard.git
 cd predictive-maintenance-dashboard
 ```
 
@@ -252,13 +252,13 @@ To deploy this application publicly to **Streamlit Community Cloud**:
    git init
    git add .
    git commit -m "feat: initial predictive maintenance dashboard"
-   git remote add origin https://github.com/YOUR_USERNAME/predictive-maintenance-dashboard.git
+   git remote add origin https://github.com/kiruba0730-code/predictive-maintenance-dashboard.git
    git push -u origin main
    ```
 2. Visit [share.streamlit.io](https://share.streamlit.io/) and log in with GitHub.
 3. Click **"New app"**.
 4. Configure the deployment settings:
-   - **Repository:** `YOUR_USERNAME/predictive-maintenance-dashboard`
+   - **Repository:** `kiruba0730-code/predictive-maintenance-dashboard`
    - **Branch:** `main`
    - **Main file path:** `app.py`
 5. Click **"Deploy!"**. Streamlit will automatically install dependencies from `requirements.txt` and launch the app.
