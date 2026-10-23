@@ -24,6 +24,7 @@ from visualizations import (
     plot_task2_toolwear_boxplot,
     plot_task3_flawed_chart,
     plot_task3_corrected_chart,
+    plot_monitoring_stream,
 )
 
 st.set_page_config(
@@ -293,56 +294,116 @@ with tab4:
         """
     )
 
-    t4_col1, t4_col2 = st.columns(2)
+    st.markdown("---")
+    st.subheader("Interactive Adaptation Demonstration: Continuous Telemetry Stream")
+    st.markdown(
+        """
+        Below is the adapted operational visualization demonstrating a rolling time-window buffer, 
+        individual raw observation points, a smoothed **5-point moving average overlay**, and a configurable 
+        safety alert threshold.
+        """
+    )
 
-    with t4_col1:
-        st.subheader("1. Update Interval & Polling Rate")
+    # Interactive controls for the Task 4 streaming chart
+    t4_ctrl1, t4_ctrl2, t4_ctrl3, t4_ctrl4 = st.columns(4)
+    with t4_ctrl1:
+        t4_param = st.selectbox(
+            "Monitored Telemetry Parameter:",
+            options=["Torque [Nm]", "Rotational speed [rpm]", "Power [W]", "Tool wear [min]"],
+            index=0,
+            key="t4_param_sel",
+        )
+    with t4_ctrl2:
+        t4_window = st.slider(
+            "Display Window (Cycles):",
+            min_value=50,
+            max_value=100,
+            value=60,
+            step=5,
+            key="t4_win_slider",
+            help="Section 5.3: Bounded memory buffer of the most recent 50-100 cycles.",
+        )
+    with t4_ctrl3:
+        t4_center = st.slider(
+            "Simulation Sequence Slice:",
+            min_value=t4_window,
+            max_value=500,
+            value=165,  # Focuses on cycles 105-165 where a real failure occurs in the dataset
+            step=5,
+            key="t4_center_slider",
+            help="Slide along historical cycles. Cycle #160 contains a recorded physical breakdown.",
+        )
+    with t4_ctrl4:
+        default_t4_thresh = 60.0 if t4_param == "Torque [Nm]" else (2500.0 if "rpm" in t4_param else (8500.0 if "W" in t4_param else 200.0))
+        t4_thresh = st.number_input(
+            f"Alert Threshold ({t4_param.split()[0]}):",
+            value=float(default_t4_thresh),
+            step=1.0 if "rpm" in t4_param or "W" in t4_param else 0.5,
+            key="t4_thresh_input",
+        )
+
+    # Slice the dataset for the display window
+    start_c = max(0, t4_center - t4_window)
+    t4_window_df = df.iloc[start_c:t4_center].copy()
+
+    # Render the chart
+    fig_t4 = plot_monitoring_stream(
+        t4_window_df,
+        parameter=t4_param,
+        threshold=t4_thresh,
+        window_size=t4_window,
+    )
+    st.plotly_chart(fig_t4, use_container_width=True)
+
+    # Explicit Figure Caption required by CSI3005 case study
+    st.markdown(
+        """
+        <p style="text-align: center; color: #94A3B8; font-size: 0.95rem; font-weight: 500; margin-top: -10px;">
+            <b>Figure 5:</b> Continuous Monitoring page showing recent readings and the moving-average overlay
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("---")
+    st.subheader("Engineering Analysis & Design Adaptation Specifications")
+
+    col_t4_a, col_t4_b = st.columns(2)
+
+    with col_t4_a:
         st.markdown(
-            """
+            r"""
+            ### 5.1 Update Interval & Polling Rate
             - **Selected Frequency:** **1.0 second per dashboard update cycle**.
             - **Engineering Justification:** High-speed spindle encoders generate data at ~1 kHz. Attempting to 
               render raw 1 kHz signals in a web browser produces catastrophic UI freezing and human perceptual overload. 
               Edge PLCs aggregate raw high-frequency waveforms into 1 Hz peak-and-mean telemetry packets, matching the 
               operator's visual absorption threshold.
+            
+            ### 5.2 Display Window and Memory Buffer (Section 5.3)
+            - **Recommended Window:** The recommended display window is the **most recent 50–100 cycles** (approx. 2 to 5 minutes of real-time operation).
+            - **Memory Architecture:** A fixed-size circular buffer, such as Python's `collections.deque(maxlen=100)`, 
+              retains recent observations while automatically evicting the oldest entries in $\mathcal{O}(1)$ constant time as new ones arrive.
+            - This bounds the amount of data kept for the display and prevents the recent-history view from growing indefinitely. The relationship between cycles and elapsed time depends on the actual cycle rate.
             """
         )
 
-        st.subheader("2. Display Time Window & Memory Buffering")
+    with col_t4_b:
         st.markdown(
             r"""
-            - **Recommended Window:** Rolling **50 to 100 cycles** (approx. 2 to 5 minutes of real-time operation).
-            - **Memory Architecture:** Fixed-size double-ended queue (`collections.deque(maxlen=100)`). As new 
-              telemetry cycles arrive, the oldest records are dropped in $\mathcal{O}(1)$ constant time, preventing 
-              browser memory leakage during multi-week continuous production shifts.
-            """
-        )
-
-        st.subheader("3. Individual Readings vs. Aggregated Values")
-        st.markdown(
-            """
-            - **Dual-Trace Architecture:**
-              - *Point Marks (Raw):* Every discrete cycle reading is retained as a point to capture instant impulse shocks 
-                (e.g., hard workpiece inclusion).
-              - *Overlay Line (Smoothed):* A **5-point moving average** is dynamically rendered to highlight the underlying 
-                thermal and torque trendline.
-            """
-        )
-
-    with t4_col2:
-        st.subheader("4. Sudden-Change Detection vs. Long-Term Drift")
-        st.markdown(
-            r"""
+            ### 5.3 Individual Readings and Aggregated Values (Section 5.4)
+            The monitoring view combines two complementary layers:
+            - **Individual Readings (Point Marks):** Show each recent observation so sudden spikes, tool chip impacts, or short-lived changes remain immediately visible.
+            - **Five-Point Moving Average (Smoothed Overlay Line):** Overlay a smoothed trendline ($k=5$) to make underlying thermal and torque progression easier to interpret without sensor noise distraction.
+            
+            ### 5.4 Sudden-Change Detection vs. Long-Term Drift
             - **Sudden Transients:** Monitored via absolute safety thresholds (e.g., Torque $> 60\text{ Nm}$) and 
               first-order derivative rate-of-change ($\frac{\Delta\tau}{\Delta t} > 15\text{ Nm/s}$) triggers that 
               fire immediate audio-visual alerts.
             - **Long-Term Drift:** Monitored via cumulative tool wear slope, forecasting remaining useful life (RUL) 
               hours before failure limits are reached.
-            """
-        )
-
-        st.subheader("5. Limitations of Replaying Historical Records")
-        st.markdown(
-            """
+            
+            ### 5.5 Limitations of Replaying Historical Records
             > [!WARNING]
             > **Streaming Simulation vs. True Factory Floor Telemetry:**
             > 1. **No Hardware Sensor Feedback Loop:** Replaying pre-recorded CSV rows is strictly passive. In a physical factory, an operator would throttle feed rates or abort machining upon receiving an alarm.
@@ -353,6 +414,6 @@ with tab4:
 
     st.markdown("---")
     st.info(
-        "💡 **Interactive Demonstration:** To experience this streaming adaptation in action with active controls, "
-        "moving average overlays, and threshold alert triggers, navigate to **Page 3: Continuous Monitoring** in the sidebar!"
+        "💡 **Live Streaming Simulator:** For an automated continuous playback replay that steps through time "
+        "automatically with live metric cards and delta indicators, visit **Page 3: Continuous Monitoring** in the sidebar!"
     )
