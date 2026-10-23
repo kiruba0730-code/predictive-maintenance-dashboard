@@ -125,7 +125,8 @@ When transitioning static charts to an active continuous condition monitoring en
 2. **Artificial Regularity:** Historical rows arrive with uniform timestamps, omitting real-world network packet jitter and PLC clock drift.
 3. **Fixed Failure States:** Historical breakdown cycles are predetermined and cannot be averted by test interventions.
 
-*(Insert Screenshot from Page 3: Continuous Monitoring Replay)*
+*(Insert Screenshot: Figure 5 from Page 4 Tab 4 or Page 3)*  
+**Figure 5: Continuous Monitoring page showing recent readings and the moving-average overlay**
 
 ---
 
